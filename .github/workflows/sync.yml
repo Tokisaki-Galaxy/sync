@@ -1,0 +1,31 @@
+name: Sync to GitLab
+
+on:
+  schedule:
+    # 每周二北京时间凌晨 4 点运行 (对应 UTC 周一 20:00)
+    - cron: '0 20 * * 1'
+  workflow_dispatch: # 允许手动点击按钮触发
+
+jobs:
+  sync-repos:
+    runs-on: ubuntu-latest
+    
+    steps:
+    - name: Checkout Code
+      uses: actions/checkout@v3
+
+    - name: Set up Python
+      uses: actions/setup-python@v4
+      with:
+        python-version: '3.9'
+
+    - name: Install Dependencies
+      run: |
+        pip install requests
+
+    - name: Run Sync Script
+      env:
+        GH_PAT: ${{ secrets.GH_PAT }}
+        GL_TOKEN: ${{ secrets.GL_TOKEN }}
+        GL_URL: ${{ secrets.GL_URL }}
+      run: python sync_tool.py
