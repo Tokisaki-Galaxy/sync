@@ -1,4 +1,4 @@
-name: Sync to GitLab
+name: Sync to GitLab and Codeberg
 
 on:
   schedule:
@@ -31,6 +31,8 @@ jobs:
         GH_PAT: ${{ secrets.GH_PAT }}
         GL_TOKEN: ${{ secrets.GL_TOKEN }}
         GL_URL: ${{ secrets.GL_URL }}
+        CB_TOKEN: ${{ secrets.CB_TOKEN }}
+        CB_URL: ${{ secrets.CB_URL }}
       run: python sync_tool.py
 
     - name: Keepalive
