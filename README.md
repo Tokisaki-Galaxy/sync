@@ -13,6 +13,7 @@
 *   **支持强制推送**：GitHub 上的 `force push` 也会同步到目标平台，保证状态一致。
 *   **私有仓库支持**：使用 Token 验证，支持私有仓库同步。
 *   **多平台同步**：支持同时同步到 GitLab 和 Codeberg，也可按需只启用其中一个。
+*   **忽略指定仓库**：通过 `ignore_repos.txt` 文件可灵活排除不需要同步的仓库。
 
 ## 🚀 快速开始
 
@@ -52,6 +53,27 @@
 
 ### 4. 添加代码文件
 
+## 🚫 忽略指定仓库
+
+如果你希望某些仓库**不参与同步**，可以在仓库根目录创建 `ignore_repos.txt` 文件，每行写一个仓库名称即可。
+
+> **注意**：`ignore_repos.txt` 已被添加至 `.gitignore`，不会被 Git 自动跟踪。
+> * **本地使用**：直接在仓库根目录创建该文件，运行脚本时会自动读取。
+> * **GitHub Actions 中使用**：若需要将其纳入版本管理以便 Actions 也能读取，可使用 `git add -f ignore_repos.txt` 将其强制加入追踪后提交，或在 `.gitignore` 中删除该行再提交文件。
+
+**示例 `ignore_repos.txt`：**
+
+```text
+# 以 # 开头的行为注释，会被忽略
+# 每行写一个不需要同步的仓库名称
+
+my-private-config
+test-repo
+some-repo-to-skip
+```
+
+同步脚本在启动时会自动读取该文件，并在日志中列出已跳过的仓库。如果文件不存在，则同步所有仓库（不跳过任何仓库）。
+
 ## ⚠️ 重要说明：关于强制推送 (Force Push)
 
 本工具使用 `git push --mirror`，这意味着：
@@ -73,5 +95,6 @@
 │   └── workflows
 │       └── sync.yml      # GitHub Actions 配置文件
 ├── README.md             # 说明文档
+├── ignore_repos.txt      # 不同步的仓库名单（本地创建，不纳入版本管理）
 └── sync_tool.py          # 同步脚本核心逻辑
 ```

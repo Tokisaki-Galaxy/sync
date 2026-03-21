@@ -20,6 +20,23 @@ CB_USERNAME = _get_env('CB_USERNAME')
 # 配置
 SYNC_FORKS = True # 是否同步 Fork 的仓库，默认为 False
 TEMP_DIR = 'temp_git_mirror'
+IGNORE_FILE = 'ignore_repos.txt'
+
+def load_ignore_list():
+    """从 ignore_repos.txt 加载不需要同步的仓库名单"""
+    ignore = set()
+    if not os.path.exists(IGNORE_FILE):
+        return ignore
+    with open(IGNORE_FILE, 'r', encoding='utf-8') as f:
+        for line in f:
+            name = line.strip()
+            if name and not name.startswith('#'):
+                ignore.add(name)
+    if ignore:
+        print(f"已从 {IGNORE_FILE} 加载 {len(ignore)} 个不同步的仓库：{', '.join(sorted(ignore))}")
+    return ignore
+
+IGNORE_REPOS = load_ignore_list()  # 启动时加载一次，运行期间不会重新读取
 
 if not GH_TOKEN:
     print("错误: 缺少环境变量 GH_PAT")
@@ -60,6 +77,9 @@ def get_github_repos():
             break
         for repo in data:
             if not SYNC_FORKS and repo.get('fork'):
+                continue
+            if repo['name'] in IGNORE_REPOS:
+                print(f"  [跳过] {repo['name']} 在忽略名单中。")
                 continue
             repos.append(repo)
         page += 1
