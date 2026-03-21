@@ -79,9 +79,10 @@ def ensure_gitlab_project(name, description, gl_user):
     """确保 GitLab 仓库存在，不存在则创建"""
     # 1. 尝试直接创建
     create_url = f'{GL_BASE_URL}/api/v4/projects'
+    mirror_desc = f"Mirror of GitHub repo {name}. " + (description or "")
     data = {
         'name': name,
-        'description': description or f"Mirror of GitHub repo {name}",
+        'description': mirror_desc.strip(),
         'visibility': 'private' # 默认全部私有，安全第一
     }
     r = requests.post(create_url, headers=gl_headers, data=data)
@@ -116,9 +117,10 @@ def get_codeberg_user_info():
 def ensure_codeberg_repo(name, description, cb_user):
     """确保 Codeberg 仓库存在，不存在则创建"""
     create_url = f'{CB_BASE_URL}/api/v1/user/repos'
+    mirror_desc = f"Mirror of GitHub repo {name}. " + (description or "")
     data = {
         'name': name,
-        'description': description or f"Mirror of GitHub repo {name}",
+        'description': mirror_desc.strip(),
         'private': True, # 默认全部私有，安全第一
         'auto_init': False
     }
