@@ -28,7 +28,8 @@
     *   权限勾选: `api`, `write_repository`。
 *   **Codeberg Token**（同步到 Codeberg 时填写）:
     *   Codeberg -> User Settings -> Applications -> Manage Access Tokens。
-    *   权限勾选: `issue`, `repository`（需包含写权限）。
+    *   权限勾选: `issue`, `repository`（需包含写权限），以及 `user`（用于读取账号信息）。
+    *   **注意**：如果你的 Token 没有 `user` 权限，也可以改为设置 `CB_USERNAME` Secret 来直接指定用户名（见下方配置表）。
 
 ### 2. 创建控制仓库
 
@@ -45,6 +46,7 @@
 | `GL_URL` | GitLab 的地址 | `https://gitlab.com` (或自建域名) | 同步到 GitLab 时填写 |
 | `CB_TOKEN` | 你的 Codeberg Access Token | `xxxx...` | 同步到 Codeberg 时填写 |
 | `CB_URL` | Codeberg 的地址 | `https://codeberg.org` (或自建域名) | 同步到 Codeberg 时填写（可选，有默认值） |
+| `CB_USERNAME` | 你的 Codeberg 用户名 | `your-username` | 可选；若 Token 无 `user` 权限时必填 |
 
 > **提示**：`GL_TOKEN` 和 `CB_TOKEN` 至少需要填写一个，也可以同时填写以实现双平台同步。
 

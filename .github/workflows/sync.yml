@@ -20,7 +20,7 @@ jobs:
     - name: Set up Python
       uses: actions/setup-python@v6
       with:
-        python-version: '3.9'
+        python-version: '3.x'
 
     - name: Install Dependencies
       run: |
@@ -33,6 +33,7 @@ jobs:
         GL_URL: ${{ secrets.GL_URL }}
         CB_TOKEN: ${{ secrets.CB_TOKEN }}
         CB_URL: ${{ secrets.CB_URL }}
+        CB_USERNAME: ${{ secrets.CB_USERNAME }}
       run: python sync_tool.py
 
     - name: Keepalive

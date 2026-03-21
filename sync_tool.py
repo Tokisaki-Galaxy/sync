@@ -5,11 +5,17 @@ import shutil
 import sys
 
 # 从环境变量获取配置
-GH_TOKEN = os.getenv('GH_PAT')
-GL_TOKEN = os.getenv('GL_TOKEN')
-GL_BASE_URL = os.getenv('GL_URL', 'https://gitlab.com').rstrip('/')
-CB_TOKEN = os.getenv('CB_TOKEN')
-CB_BASE_URL = os.getenv('CB_URL', 'https://codeberg.org').rstrip('/')
+def _get_env(name, default=None):
+    """读取环境变量并去除首尾空白，空值返回 None（或指定默认值）"""
+    value = (os.getenv(name) or '').strip()
+    return value if value else default
+
+GH_TOKEN = _get_env('GH_PAT')
+GL_TOKEN = _get_env('GL_TOKEN')
+GL_BASE_URL = _get_env('GL_URL', 'https://gitlab.com').rstrip('/')
+CB_TOKEN = _get_env('CB_TOKEN')
+CB_BASE_URL = _get_env('CB_URL', 'https://codeberg.org').rstrip('/')
+CB_USERNAME = _get_env('CB_USERNAME')
 
 # 配置
 SYNC_FORKS = True # 是否同步 Fork 的仓库，默认为 False
@@ -65,7 +71,8 @@ def get_gitlab_user_info():
     r = requests.get(f'{GL_BASE_URL}/api/v4/user', headers=gl_headers)
     if r.status_code == 200:
         return r.json()
-    print("无法获取 GitLab 用户信息，请检查 Token 或 URL")
+    print(f"无法获取 GitLab 用户信息 (HTTP {r.status_code})，请检查 Token 或 URL。")
+    print(f"  响应: {r.text[:200]}")
     sys.exit(1)
 
 def ensure_gitlab_project(name, description, gl_user):
@@ -94,10 +101,16 @@ def ensure_gitlab_project(name, description, gl_user):
 
 def get_codeberg_user_info():
     """获取 Codeberg 当前用户信息"""
+    # 如果用户已通过 CB_USERNAME 环境变量提供用户名，则跳过 API 调用
+    if CB_USERNAME:
+        print(f"  (使用 CB_USERNAME 环境变量作为用户名，跳过 API 用户信息查询)")
+        return {'login': CB_USERNAME}
     r = requests.get(f'{CB_BASE_URL}/api/v1/user', headers=cb_headers)
     if r.status_code == 200:
         return r.json()
-    print("无法获取 Codeberg 用户信息，请检查 Token 或 URL")
+    print(f"无法获取 Codeberg 用户信息 (HTTP {r.status_code})，请检查 Token 权限或 URL。")
+    print(f"  提示: Token 需要包含 'user' 权限范围 (scope)，或设置 CB_USERNAME 环境变量直接指定用户名。")
+    print(f"  响应: {r.text[:200]}")
     sys.exit(1)
 
 def ensure_codeberg_repo(name, description, cb_user):
