@@ -8,18 +8,26 @@ import sys
 GH_TOKEN = os.getenv('GH_PAT')
 GL_TOKEN = os.getenv('GL_TOKEN')
 GL_BASE_URL = os.getenv('GL_URL', 'https://gitlab.com').rstrip('/')
+CB_TOKEN = os.getenv('CB_TOKEN')
+CB_BASE_URL = os.getenv('CB_URL', 'https://codeberg.org').rstrip('/')
 
 # 配置
 SYNC_FORKS = True # 是否同步 Fork 的仓库，默认为 False
 TEMP_DIR = 'temp_git_mirror'
 
-if not GH_TOKEN or not GL_TOKEN:
-    print("错误: 缺少环境变量 GH_PAT 或 GL_TOKEN")
+if not GH_TOKEN:
+    print("错误: 缺少环境变量 GH_PAT")
+    sys.exit(1)
+
+if not GL_TOKEN and not CB_TOKEN:
+    print("错误: 至少需要设置 GL_TOKEN 或 CB_TOKEN 其中之一")
     sys.exit(1)
 
 # Header 设置
+# GitLab 使用 Private-Token 认证，Codeberg (Gitea) 使用 Authorization: token 认证
 gh_headers = {'Authorization': f'token {GH_TOKEN}', 'Accept': 'application/vnd.github.v3+json'}
-gl_headers = {'Private-Token': GL_TOKEN}
+gl_headers = {'Private-Token': GL_TOKEN} if GL_TOKEN else {}
+cb_headers = {'Authorization': f'token {CB_TOKEN}'} if CB_TOKEN else {}
 
 def run_command(cmd, cwd=None):
     """执行 Shell 命令并屏蔽敏感信息"""
@@ -70,9 +78,7 @@ def ensure_gitlab_project(name, description, gl_user):
         'visibility': 'private' # 默认全部私有，安全第一
     }
     r = requests.post(create_url, headers=gl_headers, data=data)
-    
-    repo_url_with_auth = ""
-    
+
     if r.status_code == 201:
         print(f"[GitLab] 创建仓库成功: {name}")
     elif r.status_code == 400 and 'has already been taken' in r.text:
@@ -84,49 +90,97 @@ def ensure_gitlab_project(name, description, gl_user):
     # 构造带 Token 的推送地址 (兼容 HTTP/HTTPS)
     # 格式: https://oauth2:TOKEN@gitlab.com/username/repo.git
     clean_url = GL_BASE_URL.replace('https://', '').replace('http://', '')
-    repo_url_with_auth = f"https://oauth2:{GL_TOKEN}@{clean_url}/{gl_user['username']}/{name}.git"
-    
-    return repo_url_with_auth
+    return f"https://oauth2:{GL_TOKEN}@{clean_url}/{gl_user['username']}/{name}.git"
 
-def sync_repo(repo, gl_user):
+def get_codeberg_user_info():
+    """获取 Codeberg 当前用户信息"""
+    r = requests.get(f'{CB_BASE_URL}/api/v1/user', headers=cb_headers)
+    if r.status_code == 200:
+        return r.json()
+    print("无法获取 Codeberg 用户信息，请检查 Token 或 URL")
+    sys.exit(1)
+
+def ensure_codeberg_repo(name, description, cb_user):
+    """确保 Codeberg 仓库存在，不存在则创建"""
+    create_url = f'{CB_BASE_URL}/api/v1/user/repos'
+    data = {
+        'name': name,
+        'description': description or f"Mirror of GitHub repo {name}",
+        'private': True, # 默认全部私有，安全第一
+        'auto_init': False
+    }
+    r = requests.post(create_url, headers=cb_headers, json=data)
+
+    if r.status_code == 201:
+        print(f"[Codeberg] 创建仓库成功: {name}")
+    elif r.status_code == 409:
+        # 已存在，不做处理
+        pass
+    else:
+        print(f"[Codeberg] 创建/检查仓库警告: {r.text}")
+
+    # 构造带 Token 的推送地址
+    # 格式: https://username:TOKEN@codeberg.org/username/repo.git
+    clean_url = CB_BASE_URL.replace('https://', '').replace('http://', '')
+    return f"https://{cb_user['login']}:{CB_TOKEN}@{clean_url}/{cb_user['login']}/{name}.git"
+
+def sync_repo(repo, gl_user, cb_user):
     repo_name = repo['name']
     print(f"\n>>> 开始处理: {repo_name}")
-    
+
     # 清理残余
     if os.path.exists(TEMP_DIR):
         shutil.rmtree(TEMP_DIR)
-        
-    # 1. 获取/创建 GitLab 目标地址
-    gl_push_url = ensure_gitlab_project(repo_name, repo['description'], gl_user)
-    
-    # 2. 从 GitHub 克隆 (Mirror 模式)
+
     # 构造带 Token 的 GitHub 拉取地址
     gh_clone_url = repo['clone_url'].replace('https://', f'https://oauth2:{GH_TOKEN}@')
-    
+
     print(f"    1. 正在从 GitHub 克隆...")
     if not run_command(f"git clone --mirror {gh_clone_url} {TEMP_DIR}"):
         print(f"    [错误] 克隆失败，跳过。")
         return
 
-    # 3. 推送到 GitLab
-    print(f"    2. 正在推送到 GitLab...")
-    if run_command(f"git push --mirror {gl_push_url}", cwd=TEMP_DIR):
-        print(f"    [成功] {repo_name} 同步完成。")
-    else:
-        print(f"    [错误] 推送失败。")
+    step = 2
+
+    # 推送到 GitLab
+    if GL_TOKEN:
+        gl_push_url = ensure_gitlab_project(repo_name, repo['description'], gl_user)
+        print(f"    {step}. 正在推送到 GitLab...")
+        if run_command(f"git push --mirror {gl_push_url}", cwd=TEMP_DIR):
+            print(f"    [GitLab] {repo_name} 同步成功。")
+        else:
+            print(f"    [GitLab] 推送失败。")
+        step += 1
+
+    # 推送到 Codeberg
+    if CB_TOKEN:
+        cb_push_url = ensure_codeberg_repo(repo_name, repo['description'], cb_user)
+        print(f"    {step}. 正在推送到 Codeberg...")
+        if run_command(f"git push --mirror {cb_push_url}", cwd=TEMP_DIR):
+            print(f"    [Codeberg] {repo_name} 同步成功。")
+        else:
+            print(f"    [Codeberg] 推送失败。")
 
     # 清理
     if os.path.exists(TEMP_DIR):
         shutil.rmtree(TEMP_DIR)
 
 if __name__ == "__main__":
-    gl_user = get_gitlab_user_info()
-    print(f"GitLab 用户: {gl_user['username']}")
-    
+    gl_user = None
+    cb_user = None
+
+    if GL_TOKEN:
+        gl_user = get_gitlab_user_info()
+        print(f"GitLab 用户: {gl_user['username']}")
+
+    if CB_TOKEN:
+        cb_user = get_codeberg_user_info()
+        print(f"Codeberg 用户: {cb_user['login']}")
+
     repos = get_github_repos()
-    
+
     for repo in repos:
         try:
-            sync_repo(repo, gl_user)
+            sync_repo(repo, gl_user, cb_user)
         except Exception as e:
             print(f"处理 {repo['name']} 时发生未知错误: {e}")
