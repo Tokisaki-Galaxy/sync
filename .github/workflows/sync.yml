@@ -15,10 +15,10 @@ jobs:
     
     steps:
     - name: Checkout Code
-      uses: actions/checkout@v6
+      uses: actions/checkout@v4
 
     - name: Set up Python
-      uses: actions/setup-python@v6
+      uses: actions/setup-python@v5
       with:
         python-version: '3.9'
 
@@ -33,6 +33,7 @@ jobs:
         GL_URL: ${{ secrets.GL_URL }}
         CB_TOKEN: ${{ secrets.CB_TOKEN }}
         CB_URL: ${{ secrets.CB_URL }}
+        CB_USERNAME: ${{ secrets.CB_USERNAME }}
       run: python sync_tool.py
 
     - name: Keepalive
