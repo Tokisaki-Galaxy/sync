@@ -18,7 +18,7 @@ CB_BASE_URL = _get_env('CB_URL', 'https://codeberg.org').rstrip('/')
 CB_USERNAME = _get_env('CB_USERNAME')
 
 # 配置
-SYNC_FORKS = True # 是否同步 Fork 的仓库，默认为 False
+SYNC_FORKS = False # 是否同步 Fork 的仓库，默认为 False
 TEMP_DIR = 'temp_git_mirror'
 IGNORE_FILE = 'ignore_repos.txt'
 
